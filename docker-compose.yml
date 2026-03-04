@@ -1,0 +1,48 @@
+#https://github.com/TGITS/docker-compose-examples
+services:
+  postgres:
+    # see https://hub.docker.com/_/postgres for list of postgres image versions on docker hub
+    image: postgres:18 # To download the latest image
+    container_name: postgres
+    volumes:
+      - postgresql_data:/var/lib/postgresql
+    env_file:
+      - .env    
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432" # HOST_PORT:CONTAINER_PORT
+    networks:
+      - postgres_network
+  pgadmin:
+    # see https://hub.docker.com/r/dpage/pgadmin4
+    image: dpage/pgadmin4:latest # To download the latest image
+    container_name: pgadmin
+    volumes:
+      - pgadmin_working_dir:/var/lib/pgadmin
+      - pgadmin_config_dir:/pgadmin4
+    env_file:
+      - .env    
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+    depends_on:
+      - postgres
+    ports:
+      - "5433:80" # HOST_PORT:CONTAINER_PORT
+    networks:
+      - postgres_network
+
+volumes:
+  postgresql_data:
+    driver: local
+  pgadmin_working_dir:
+    driver: local
+  pgadmin_config_dir:
+    driver: local
+
+networks:
+  postgres_network:
+    driver: bridge
