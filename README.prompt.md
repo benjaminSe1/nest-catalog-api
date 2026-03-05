@@ -1,292 +1,371 @@
-# 🔁 Prompt de reprise — Projet Fullstack Vue + NestJS + Prisma
+# 🔁 Prompt de reprise — Backend NestJS Catalogue Produits
 
-Ce document sert de **contexte de reprise** pour continuer le développement du projet avec une IA ou un autre développeur.
+Ce document fournit le **contexte complet pour reprendre le développement** d’un backend NestJS servant une application catalogue produits.
 
-Il décrit :
-
-- l'objectif du projet
-- la stack utilisée
-- ce qui est déjà implémenté
-- ce qu'il reste à faire
+L’objectif est d’apprendre **NestJS proprement** avec une architecture claire, sans copier-coller, en comprenant les concepts.
 
 ---
 
 # 🎯 Objectif du projet
 
-Construire une application **catalogue produits**.
+Construire une **API backend pour un catalogue produits**.
 
-Initialement, le frontend utilisait l'API publique :
+Au départ, le frontend utilisait :
 
 https://fakestoreapi.com
 
-L'objectif est maintenant de :
+L’objectif est maintenant de :
 
 - créer **notre propre API backend**
 - remplacer la fake API
-- permettre l'administration du catalogue produits
-- créer éventuellement une **interface admin** côté frontend.
+- permettre **l’administration du catalogue produits**
+- exposer une API consommée par un frontend Vue.
 
 ---
 
 # 🧱 Stack technique
 
-## Frontend
-
-- Vue 3
-- TypeScript strict
-- Vite
-- Pinia
-- Vue Router
-- Vuetify
-- Vitest
-
 ## Backend
 
-- NestJS
-- Prisma ORM (v7)
-- PostgreSQL
-- Docker
-- Docker Compose
+- **NestJS**
+- **TypeScript strict**
+- **Prisma ORM v7**
+- **PostgreSQL**
+- **Docker / Docker Compose**
+- **ESLint strict**
+
+## Frontend (hors scope pour l’instant)
+
+- Vue 3
+- TypeScript
+- Pinia
+- Vuetify
 
 ---
 
-# 📦 Architecture globale
+# 🐳 Infrastructure
 
-Le projet est séparé en **deux repositories Git** :
+La base PostgreSQL est lancée avec **Docker Compose**.
 
-frontend/   → application Vue 3  
-backend/    → API NestJS
-
-Le frontend consommera l'API NestJS.
-
-Le travail actuel concerne **le backend**.
-
----
-
-# 🐳 Infrastructure backend
-
-La base de données PostgreSQL est lancée avec **Docker Compose**.
-
-Le docker-compose contient :
+Le compose contient :
 
 - postgres
 - pgadmin
 
-Avec Postgres 18+, les données sont montées sur :
+Important avec Postgres récent :
 
 /var/lib/postgresql
 
-et non plus :
-
-/var/lib/postgresql/data
+est utilisé comme volume.
 
 ---
 
-# ⚙️ Prisma (version 7)
+# ⚙️ Configuration Prisma (v7)
 
-Prisma v7 ne configure plus la connexion directement dans `schema.prisma`.
-
-La configuration est maintenant dans :
+Prisma v7 utilise maintenant :
 
 prisma.config.ts
 
-Exemple de configuration :
+et plus la configuration datasource directement dans `schema.prisma`.
 
-    import 'dotenv/config'
-    import { defineConfig } from 'prisma/config'
+Exemple :
 
-    export default defineConfig({
-      schema: 'prisma/schema.prisma',
-      migrations: {
-        path: 'prisma/migrations',
-      },
-      datasource: {
-        url: process.env['DATABASE_URL'],
-      },
-    })
+```ts
+import 'dotenv/config'
+import { defineConfig } from 'prisma/config'
+
+export default defineConfig({
+  schema: 'prisma/schema.prisma',
+  migrations: {
+    path: 'prisma/migrations',
+  },
+  datasource: {
+    url: process.env.DATABASE_URL,
+  },
+})
+```
 
 Connexion runtime via :
 
-- @prisma/adapter-pg
-- pg
+- `@prisma/adapter-pg`
+- `pg`
 
 ---
 
-# 🗄️ Modèle de données actuel
+# 🗄️ Modèle de données
 
-Structure Prisma actuelle :
+```prisma
+model Category {
+  name     String    @unique
+  products Product[]
+}
 
-    model Category {
-      name     String    @unique
-      products Product[]
-    }
-
-    model Product {
-      id           Int      @id
-      title        String
-      price        Int
-      description  String
-      category     Category @relation(fields: [categoryName], references: [name])
-      categoryName String
-      image        String
-      rate         Float
-      rateCount    Int
-    }
-
-La base a été créée avec :
-
-pnpm prisma migrate dev
+model Product {
+  id           Int      @id
+  title        String
+  price        Int
+  description  String
+  category     Category @relation(fields: [categoryName], references: [name])
+  categoryName String
+  image        String
+  rate         Float
+  rateCount    Int
+}
+```
 
 ---
 
-# 🧱 Backend NestJS actuel
+# 🧠 Architecture NestJS
 
-Structure actuelle :
+Architecture standard utilisée :
 
-src/
-  main.ts
-  app.module.ts
-  prisma/
-    prisma.service.ts
-    prisma.module.ts
+```
+Controller
+   ↓
+Service
+   ↓
+PrismaService
+   ↓
+Database
+```
 
----
+Responsabilités :
 
-# PrismaService
+### Controller
+Expose les routes HTTP.
 
-Le service étend PrismaClient et configure l'adapter PostgreSQL.
-
-    @Injectable()
-    export class PrismaService extends PrismaClient {
-      constructor() {
-        const adapter = new PrismaPg({
-          connectionString: process.env.DATABASE_URL as string,
-        })
-
-        super({ adapter })
-      }
-    }
-
----
-
-# PrismaModule
-
-Le module expose PrismaService pour l'injection dans NestJS.
-
-    @Module({
-      providers: [PrismaService],
-      exports: [PrismaService],
-    })
-    export class PrismaModule {}
-
----
-
-# 🧠 Concepts NestJS utilisés
-
-Architecture NestJS :
-
-Controller → Service → Prisma → Database
-
-Concepts principaux :
-
-Module  
-Regroupe controllers et services d'un domaine.
-
-Controller  
-Gère les routes HTTP.
-
-Service  
+### Service
 Contient la logique métier.
 
-Dependency Injection  
-Nest instancie automatiquement les services et les injecte.
+### PrismaService
+Accès base de données.
+
+### Module
+Regroupe les controllers et services d’un domaine.
+
+---
+
+# 📂 Structure actuelle du backend
+
+```
+src
+ ├ main.ts
+ ├ app.module.ts
+ │
+ ├ prisma
+ │   ├ prisma.module.ts
+ │   └ prisma.service.ts
+ │
+ ├ health
+ │   ├ health.module.ts
+ │   ├ health.controller.ts
+ │   └ health.service.ts
+ │
+ ├ categories
+ │   ├ categories.module.ts
+ │   ├ categories.controller.ts
+ │   └ categories.service.ts
+ │
+ └ products
+     ├ products.module.ts
+     ├ products.controller.ts
+     ├ products.service.ts
+     └ dto
+         └ products-service-response.ts
+```
+
+---
+
+# 🧪 Endpoint Health
+
+Endpoint :
+
+```
+GET /health
+```
+
+Objectif :
+
+- vérifier la connexion DB
+- faire `prisma.product.count()`
+
+Retour attendu :
+
+```json
+{
+  "status": "ok",
+  "db": "up",
+  "products": 10
+}
+```
+
+Si la DB est KO → HTTP **503**.
+
+---
+
+# 📦 API actuelle
+
+## Categories
+
+```
+GET /categories
+```
+
+Retour :
+
+```
+string[]
+```
+
+Implémentation :
+
+- Prisma `category.findMany()`
+- retourne seulement `name`
+
+---
+
+## Products
+
+### Liste
+
+```
+GET /products
+```
+
+Retour :
+
+```
+Product[]
+```
+
+### Produit unique
+
+```
+GET /products/:id
+```
+
+Retour :
+
+```
+Product
+```
+
+Si non trouvé → **404**
+
+---
+
+# 📦 DTO exposé
+
+```ts
+export type Product = {
+  id: number
+  title: string
+  price: number
+  description: string
+  category: string
+  image: string
+  rate: number
+  rateCount: number
+}
+```
+
+Les données Prisma sont transformées via un mapper :
+
+```
+productDB → Product DTO
+```
+
+---
+
+# 🧹 Linting
+
+ESLint strict avec :
+
+- `typescript-eslint`
+- `eslint-plugin-import`
+- `eslint-plugin-unused-imports`
+- `eslint-plugin-sonarjs`
+- `eslint-plugin-security`
+
+Règles importantes :
+
+- pas de `any`
+- return types explicites
+- promises attendues
+- import ordering
+- détection code smells
+
+Certaines règles sont assouplies pour Nest :
+
+- modules Nest vides autorisés
+- return type non obligatoire dans controllers
 
 ---
 
 # 🚧 Étapes restantes du projet
 
-## 1 — Vérifier l'intégration Prisma
+## 1️⃣ Pagination produits
 
-Créer un endpoint de test :
+Ajouter :
 
-GET /health
+```
+GET /products?page=1&limit=20
+```
 
-qui effectue par exemple :
+via Prisma :
 
-prisma.product.count()
-
----
-
-## 2 — Créer les modules métier
-
-Créer les modules :
-
-products  
-categories  
-
-avec le CLI Nest :
-
-nest g module products  
-nest g controller products  
-nest g service products  
-
-et la même chose pour categories.
+```
+skip
+take
+```
 
 ---
 
-## 3 — Implémenter les endpoints
+## 2️⃣ DTO validation
 
-API publique :
+Ajouter :
 
-GET /products  
-GET /products/:id  
-GET /categories  
-
-API admin :
-
-POST /products  
-PATCH /products/:id  
-DELETE /products/:id  
-
----
-
-## 4 — Ajouter validation DTO
-
-Utiliser :
-
-class-validator  
-class-transformer  
+```
+class-validator
+class-transformer
+```
 
 pour valider les payloads.
 
 ---
 
-## 5 — Authentification admin
+## 3️⃣ CRUD admin produits
+
+Endpoints :
+
+```
+POST /products
+PATCH /products/:id
+DELETE /products/:id
+```
+
+---
+
+## 4️⃣ Authentification
 
 Ajouter :
 
-- JWT authentication
+- JWT
 - rôle ADMIN
 - endpoint login
 
 ---
 
-## 6 — Interface admin frontend
+## 5️⃣ Interface admin frontend
 
-Créer une section `/admin` dans le frontend Vue permettant :
+Créer une section :
+
+```
+/admin
+```
+
+permettant de :
 
 - gérer les produits
 - gérer les catégories
-
----
-
-# 🧭 Aide attendue pour la suite
-
-Continuer l'implémentation **pas à pas** avec :
-
-- explications pédagogiques NestJS
-- architecture backend propre
-- bonnes pratiques (DTO, services, modules)
-- intégration correcte Prisma v7
-
-Ne pas sauter d'étapes et expliquer les choix d'architecture.
+- gérer les utilisateurs admin
