@@ -1,5 +1,7 @@
 import { Injectable, ServiceUnavailableException } from '@nestjs/common';
+
 import { PrismaService } from 'src/prisma/prisma.service';
+
 import { HealthCheckResponse } from './dto/health-service-response';
 
 @Injectable()
