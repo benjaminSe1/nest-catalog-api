@@ -1,11 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import type { Prisma, Product as ProductDB } from '@prisma/client';
+import { Prisma, Product as ProductDB } from '@prisma/client';
 
 import { PrismaService } from 'src/prisma/prisma.service';
 
 import type {
   Product,
   ProductBody,
+  ProductPatchBody,
   ProductsQuery,
   ProductsResponse,
 } from './dto/products-service-response';
@@ -50,7 +51,7 @@ export class ProductsService {
         id,
       },
     });
-    if (!productDB) throw new NotFoundException('Product not found');
+    if (productDB === null) throw new NotFoundException('Product not found');
 
     return this.productDBToDTO(productDB);
   }
@@ -58,28 +59,70 @@ export class ProductsService {
   public async create(body: ProductBody): Promise<Product> {
     const productDB = await this.prisma.product.create({
       data: {
-        title: body.title,
-        price: body.price,
-        description: body.description,
+        ...body,
         category: {
           connectOrCreate: {
             where: { name: body.category },
             create: { name: body.category },
           },
         },
-        image: body.image,
-        rate: body.rate,
-        rateCount: body.rateCount,
       },
     });
     return this.productDBToDTO(productDB);
+  }
+
+  public async patch(id: number, body: ProductPatchBody): Promise<Product> {
+    const data: Prisma.ProductUpdateInput = {
+      ...body,
+      category:
+        body.category !== undefined
+          ? {
+              connectOrCreate: {
+                where: { name: body.category },
+                create: { name: body.category },
+              },
+            }
+          : undefined,
+    };
+    try {
+      const productDB = await this.prisma.product.update({
+        data,
+        where: { id },
+      });
+      return this.productDBToDTO(productDB);
+    } catch (error: unknown) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new NotFoundException('Product not found');
+      }
+      throw error;
+    }
+  }
+
+  public async delete(id: number): Promise<void> {
+    try {
+      await this.prisma.product.delete({
+        where: { id },
+      });
+      return;
+    } catch (error: unknown) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new NotFoundException('Product not found');
+      }
+      throw error;
+    }
   }
 
   private productDBToDTO(productDB: ProductDB): Product {
     return {
       id: productDB.id,
       title: productDB.title,
-      price: productDB.price,
+      price: productDB.price.toString(),
       description: productDB.description,
       category: productDB.categoryName,
       image: productDB.image,

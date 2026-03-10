@@ -3,7 +3,7 @@ import { z } from 'zod';
 export type Product = {
   id: number;
   title: string;
-  price: number;
+  price: string;
   description: string;
   category: string;
   image: string;
@@ -31,7 +31,7 @@ export type ProductsQuery = z.infer<typeof productsQuerySchema>;
 
 export const productBodySchema = z.object({
   title: z.string().trim().min(1),
-  price: z
+  price: z.coerce
     .number()
     .nonnegative()
     .refine((value) => Math.round(value * 100) === value * 100, {
@@ -45,3 +45,9 @@ export const productBodySchema = z.object({
 });
 
 export type ProductBody = z.infer<typeof productBodySchema>;
+
+export const productPatchSchema = productBodySchema
+  .partial()
+  .refine((data) => Object.keys(data).length > 0);
+
+export type ProductPatchBody = z.infer<typeof productPatchSchema>;
