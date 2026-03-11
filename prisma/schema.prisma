@@ -28,3 +28,17 @@ model Product {
     rate         Float
     rateCount    Int
 }
+
+model User {
+    id           Int      @id @default(autoincrement())
+    email        String   @unique
+    passwordHash String
+    role         Role     @default(USER)
+    createdAt    DateTime @default(now())
+    updatedAt    DateTime @updatedAt
+}
+
+enum Role {
+    USER
+    ADMIN
+}
